@@ -12,7 +12,10 @@ const genPath = path.join(__dirname, projectName)
 const genPathWithSubfolder = path.join(__dirname, 'subfolder', projectName)
 
 function run<SO extends SyncOptions>(args: string[], options?: SO): SyncResult<SO> {
-  return execaCommandSync(`node ${CLI_PATH} ${args.join(' ')}`, options)
+  return execaCommandSync(`node ${CLI_PATH} ${args.join(' ')}`, {
+    input: '\n',
+    ...options,
+  }) as unknown as SyncResult<SO>
 }
 
 // // Helper to create a non-empty directory
@@ -59,22 +62,24 @@ it('prompts for the project name if none supplied', () => {
 
 it('prompts for the framework if none supplied when target dir is current directory', () => {
   fs.mkdirSync(genPath, { recursive: true })
-  const { stdout } = run(['.'], { cwd: genPath })
+  const { stdout } = run(['.'], { cwd: genPath, input: '\n\n' })
   expect(stdout).toContain('Select a framework:')
 })
 
 it('prompts for the framework if none supplied', () => {
-  const { stdout } = run([projectName])
+  const { stdout } = run([projectName], { input: '\n\n' })
   expect(stdout).toContain('Select a framework:')
 })
 
 it('prompts for the framework on not supplying a value for --template', () => {
-  const { stdout } = run([projectName, '--template'])
+  const { stdout } = run([projectName, '--template'], { input: '\n\n' })
   expect(stdout).toContain('Select a framework:')
 })
 
 it('prompts for the framework on supplying an invalid template', () => {
-  const { stdout } = run([projectName, '--template', 'unknown'])
+  const { stdout } = run([projectName, '--template', 'unknown'], {
+    input: '\n\n',
+  })
   expect(stdout).toContain(
     `"unknown" isn't a valid template. Please choose from below:`,
   )
@@ -103,6 +108,7 @@ it('prompts for the framework on supplying an invalid template', () => {
 it('successfully scaffolds a project based on vue starter template', () => {
   const { stdout } = run([projectName, '--template', 'vue'], {
     cwd: __dirname,
+    input: '\n',
   })
   const generatedFiles = fs.readdirSync(genPath).sort()
   const generatedPackage = JSON.parse(
@@ -121,6 +127,7 @@ it('successfully scaffolds a project based on vue starter template', () => {
 it('successfully scaffolds a project with subfolder based on react starter template', () => {
   const { stdout } = run([`subfolder/${projectName}`, '--template', 'react'], {
     cwd: __dirname,
+    input: '\n',
   })
   const generatedFiles = fs.readdirSync(genPathWithSubfolder).sort()
   const generatedPackage = JSON.parse(
@@ -139,12 +146,28 @@ it('successfully scaffolds a project with subfolder based on react starter templ
 it('works with the -t alias', () => {
   const { stdout } = run([projectName, '-t', 'vue'], {
     cwd: __dirname,
+    input: '\n',
   })
   const generatedFiles = fs.readdirSync(genPath).sort()
 
   // Assertions
   expect(stdout).toContain(`Scaffolding project in ${genPath}`)
   expect(templateFiles).toEqual(generatedFiles)
+})
+
+it('writes a custom description to package.json', () => {
+  const description = 'My test extension'
+
+  run([projectName, '--template', 'vue'], {
+    cwd: __dirname,
+    input: `${description}\n`,
+  })
+
+  const generatedPackage = JSON.parse(
+    fs.readFileSync(path.join(genPath, 'package.json'), 'utf-8'),
+  )
+
+  expect(generatedPackage.description).toBe(description)
 })
 
 // it('accepts command line override for --overwrite', () => {
